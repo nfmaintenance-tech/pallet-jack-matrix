@@ -211,12 +211,11 @@
             }
         });
 
-        // UPDATED AUTH FUNCTION WITH AUTOMATIC DOMAIN APPENDING
+        // AUTH FUNCTION WITH AUTOMATIC DOMAIN APPENDING
         window.login = function() {
             let inputEmail = document.getElementById('login-email').value.trim();
             const pass = document.getElementById('login-password').value;
 
-            // If the operator didn't type the domain, add it automatically
             if (inputEmail && !inputEmail.includes('@')) {
                 inputEmail = inputEmail + '@materialinmotion.com';
             }
@@ -269,10 +268,18 @@
             } catch (err) { alert("Write rejection error: " + err.message); }
         }
 
-        // DIRECT RUN TIME STAMP UPDATE FOR "DONE" TRIGGER
+        // TIMESTAMP AND TECHNICIAN POP-UP UPDATE TRIGGER
         window.markAsGreasedToday = async function(id) {
+            // Prompt the user for tech logs prior to database adjustment
+            const techNames = prompt("Enter the technician name(s) who completed this greasing operation:");
+            
+            // Abort if cancel is selected or the field is completely empty
+            if (techNames === null || techNames.trim() === "") {
+                alert("Operation aborted. Technicians field is required to log greasing execution.");
+                return;
+            }
+
             const today = new Date();
-            // Formats to system input standards: YYYY-MM-DD local time variant
             const yyyy = today.getFullYear();
             const mm = String(today.getMonth() + 1).padStart(2, '0');
             const dd = String(today.getDate()).padStart(2, '0');
@@ -280,7 +287,8 @@
 
             try {
                 await updateDoc(doc(db, "pallet_jacks", id), {
-                    greasedDate: formattedDate
+                    greasedDate: formattedDate,
+                    technicians: techNames.trim()
                 });
             } catch (err) {
                 alert("Failed to update status timestamp: " + err.message);
@@ -304,26 +312,22 @@
             const tbody = document.getElementById('jack-table-body');
             tbody.innerHTML = '';
 
-            // Filter data array based on search text 
             let filtered = localJacksCache.filter(jack => {
                 return Object.values(jack).some(val => String(val).toLowerCase().includes(query));
             });
 
-            // Sort data array
             filtered.sort((a, b) => {
                 let valA = a[currentSortField] || '';
                 let valB = b[currentSortField] || '';
                 return valA.toString().localeCompare(valB.toString(), undefined, {numeric: true, sensitivity: 'base'}) * (currentSortAscending ? 1 : -1);
             });
 
-            // Iterate and inject UI nodes
             filtered.forEach(jack => {
                 const elapsedMonths = calculateElapsedMonths(jack.greasedDate);
                 let statusClass = 'status-green';
                 let rowClass = 'row-green';
                 let statusText = 'GREASED';
 
-                // Core logic modified to match 2-month and 6-month structural windows
                 if (elapsedMonths >= 2 && elapsedMonths <= 6) {
                     statusClass = 'status-yellow';
                     rowClass = 'row-yellow';
@@ -335,7 +339,7 @@
                 }
 
                 const tr = document.createElement('tr');
-                tr.className = rowClass; // Row broad layout color mapping injection
+                tr.className = rowClass;
                 tr.innerHTML = `
                     <td><strong>${jack.name || ''}</strong></td>
                     <td><span style="color:var(--accent-cyan)">${jack.tag || ''}</span></td>
@@ -401,4 +405,3 @@
     </script>
 </body>
 </html>
-       
