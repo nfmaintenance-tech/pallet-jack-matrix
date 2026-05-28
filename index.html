@@ -51,7 +51,16 @@
         th { background: #1e293b; color: var(--text-muted); padding: 16px; font-weight: 600; cursor: pointer; text-transform: uppercase; font-size: 11px; letter-spacing: 0.5px; border-bottom: 2px solid #334155;}
         th:hover { color: var(--accent-cyan); }
         td { padding: 16px; border-bottom: 1px solid #334155; vertical-align: middle; }
-        tr:hover { background: rgba(255,255,255,0.02); }
+        
+        /* Dynamic Row Background Highlight States */
+        tr.row-green { background: rgba(16, 185, 129, 0.04); }
+        tr.row-green:hover { background: rgba(16, 185, 129, 0.08); }
+        
+        tr.row-yellow { background: rgba(245, 158, 11, 0.05); }
+        tr.row-yellow:hover { background: rgba(245, 158, 11, 0.1); }
+        
+        tr.row-red { background: rgba(239, 68, 68, 0.06); }
+        tr.row-red:hover { background: rgba(239, 68, 68, 0.12); }
 
         /* Color Coding Indicators */
         .status-pill { padding: 4px 10px; border-radius: 20px; font-weight: bold; font-size: 11px; display: inline-block; text-transform: uppercase;}
@@ -59,8 +68,11 @@
         .status-yellow { background: rgba(245, 158, 11, 0.2); color: var(--status-yellow); border: 1px solid var(--status-yellow); }
         .status-red { background: rgba(239, 68, 68, 0.2); color: var(--status-red); border: 1px solid var(--status-red); }
 
-        .action-icon-btn { background: transparent; color: var(--accent-cyan); padding: 4px 8px; font-size: 12px; border: 1px solid var(--accent-cyan); display: inline-block; width: auto; margin: 0; }
+        .action-icon-btn { background: transparent; color: var(--accent-cyan); padding: 4px 8px; font-size: 12px; border: 1px solid var(--accent-cyan); display: inline-block; width: auto; margin: 0 2px; border-radius: 4px; }
         .action-icon-btn:hover { background: var(--accent-cyan); color: white; }
+        
+        .action-done-btn { color: var(--status-green); border-color: var(--status-green); }
+        .action-done-btn:hover { background: var(--status-green); color: white; }
     </style>
 </head>
 <body>
@@ -77,10 +89,9 @@
     <div id="dashboard-container" class="hidden">
         <header>
             <div>
-                <h2>EQUIPMENT MATRIX</h2>
-                <p style="color: var(--text-muted); font-size: 12px;">Real-time Firestore Connected System</p>
+                <h2>Pallet Jack Greasing Tracker</h2>
             </div>
-            <button class="logout-btn" onclick="logout()">De-authenticate</button>
+            <button class="logout-btn" onclick="logout()">Sign Out</button>
         </header>
 
         <div class="controls-grid">
@@ -107,7 +118,7 @@
                     </tr>
                 </thead>
                 <tbody id="jack-table-body">
-                    </tbody>
+                </tbody>
             </table>
         </div>
     </div>
@@ -170,15 +181,14 @@
         import { getAuth, signInWithEmailAndPassword, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
         import { getFirestore, collection, addDoc, updateDoc, deleteDoc, doc, onSnapshot } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
 
-        // !!! PASTE YOUR FIREBASE WEB CONFIG OBJECT REPLACING THIS ENTIRE LOGIC BLOCK !!!
         const firebaseConfig = {
-  apiKey: "AIzaSyCdj2HkoXdEeO_bu2KZ7AepowXcBrhiMtI",
-  authDomain: "pallet-jack-tracker.firebaseapp.com",
-  projectId: "pallet-jack-tracker",
-  storageBucket: "pallet-jack-tracker.firebasestorage.app",
-  messagingSenderId: "566107627737",
-  appId: "1:566107627737:web:891e4b96f242cfe2309ec8"
-};
+            apiKey: "AIzaSyCdj2HkoXdEeO_bu2KZ7AepowXcBrhiMtI",
+            authDomain: "pallet-jack-tracker.firebaseapp.com",
+            projectId: "pallet-jack-tracker",
+            storageBucket: "pallet-jack-tracker.firebasestorage.app",
+            messagingSenderId: "566107627737",
+            appId: "1:566107627737:web:891e4b96f242cfe2309ec8"
+        };
 
         // Init Firebase Modules
         const app = initializeApp(firebaseConfig);
@@ -202,19 +212,19 @@
         });
 
         // UPDATED AUTH FUNCTION WITH AUTOMATIC DOMAIN APPENDING
-window.login = function() {
-    let inputEmail = document.getElementById('login-email').value.trim();
-    const pass = document.getElementById('login-password').value;
+        window.login = function() {
+            let inputEmail = document.getElementById('login-email').value.trim();
+            const pass = document.getElementById('login-password').value;
 
-    // If the operator didn't type the domain, add it automatically
-    if (inputEmail && !inputEmail.includes('@')) {
-        inputEmail = inputEmail + '@materialinmotion.com';
-    }
+            // If the operator didn't type the domain, add it automatically
+            if (inputEmail && !inputEmail.includes('@')) {
+                inputEmail = inputEmail + '@materialinmotion.com';
+            }
 
-    signInWithEmailAndPassword(auth, inputEmail, pass).catch(err => {
-        document.getElementById('login-error').innerText = "Auth Failed: " + err.message;
-    });
-}
+            signInWithEmailAndPassword(auth, inputEmail, pass).catch(err => {
+                document.getElementById('login-error').innerText = "Auth Failed: " + err.message;
+            });
+        }
         window.logout = function() { signOut(auth); }
 
         // FIRESTORE SYNC (Realtime Updates)
@@ -259,9 +269,21 @@ window.login = function() {
             } catch (err) { alert("Write rejection error: " + err.message); }
         }
 
-        window.deleteJack = async function(id) {
-            if(confirm("Confirm destructive teardown of this asset entry from main cloud array?")) {
-                await deleteDoc(doc(db, "pallet_jacks", id));
+        // DIRECT RUN TIME STAMP UPDATE FOR "DONE" TRIGGER
+        window.markAsGreasedToday = async function(id) {
+            const today = new Date();
+            // Formats to system input standards: YYYY-MM-DD local time variant
+            const yyyy = today.getFullYear();
+            const mm = String(today.getMonth() + 1).padStart(2, '0');
+            const dd = String(today.getDate()).padStart(2, '0');
+            const formattedDate = `${yyyy}-${mm}-${dd}`;
+
+            try {
+                await updateDoc(doc(db, "pallet_jacks", id), {
+                    greasedDate: formattedDate
+                });
+            } catch (err) {
+                alert("Failed to update status timestamp: " + err.message);
             }
         }
 
@@ -298,17 +320,22 @@ window.login = function() {
             filtered.forEach(jack => {
                 const elapsedMonths = calculateElapsedMonths(jack.greasedDate);
                 let statusClass = 'status-green';
-                let statusText = 'Optimal';
+                let rowClass = 'row-green';
+                let statusText = 'GREASED';
 
-                if (elapsedMonths >= 1 && elapsedMonths < 3) {
+                // Core logic modified to match 2-month and 6-month structural windows
+                if (elapsedMonths >= 2 && elapsedMonths <= 6) {
                     statusClass = 'status-yellow';
-                    statusText = 'Caution';
-                } else if (elapsedMonths >= 3) {
+                    rowClass = 'row-yellow';
+                    statusText = 'EXPIRING';
+                } else if (elapsedMonths > 6) {
                     statusClass = 'status-red';
-                    statusText = 'Critical';
+                    rowClass = 'row-red';
+                    statusText = 'NEEDS GREASING';
                 }
 
                 const tr = document.createElement('tr');
+                tr.className = rowClass; // Row broad layout color mapping injection
                 tr.innerHTML = `
                     <td><strong>${jack.name || ''}</strong></td>
                     <td><span style="color:var(--accent-cyan)">${jack.tag || ''}</span></td>
@@ -322,8 +349,8 @@ window.login = function() {
                     <td style="max-width: 200px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size:12px; color:var(--text-muted)">${jack.notes || ''}</td>
                     <td><span class="status-pill ${statusClass}">${statusText}</span></td>
                     <td>
+                        <button class="action-icon-btn action-done-btn" onclick="markAsGreasedToday('${jack.id}')">DONE</button>
                         <button class="action-icon-btn" onclick="openModal('${jack.id}')">EDIT</button>
-                        <button class="action-icon-btn" style="color:var(--status-red); border-color:var(--status-red)" onclick="deleteJack('${jack.id}')">❌</button>
                     </td>
                 `;
                 tbody.appendChild(tr);
@@ -334,7 +361,6 @@ window.login = function() {
             if(!dateString) return 999;
             const pastDate = new Date(dateString);
             const today = new Date();
-            // Basic approximation calculation for accurate tracking metric
             return (today - pastDate) / (1000 * 60 * 60 * 24 * 30.4375);
         }
 
@@ -371,6 +397,10 @@ window.login = function() {
             }
         }
 
+        window.closeModal = function() { document.getElementById('jack-modal').classList.add('hidden'); }
+    </script>
+</body>
+</html>
         window.closeModal = function() { document.getElementById('jack-modal').classList.add('hidden'); }
     </script>
 </body>
