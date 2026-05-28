@@ -1,0 +1,371 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Nexus Logistics - Pallet Jack Matrix</title>
+    <style>
+        :root {
+            --bg-dark: #0f172a;
+            --panel-dark: #1e293b;
+            --text-main: #f8fafc;
+            --text-muted: #94a3b8;
+            --accent-cyan: #06b6d4;
+            --status-green: #10b981;
+            --status-yellow: #f59e0b;
+            --status-red: #ef4444;
+        }
+
+        * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
+        body { background-color: var(--bg-dark); color: var(--text-main); padding: 20px; min-height: 100vh; }
+        
+        /* Utility Classes */
+        .hidden { display: none !important; }
+
+        /* Login Screen styling */
+        #login-container { max-width: 400px; margin: 100px auto; padding: 30px; background: var(--panel-dark); border-radius: 12px; border: 1px solid #334155; box-shadow: 0 10px 25px rgba(0,0,0,0.5); text-align: center;}
+        h1, h2 { color: var(--text-main); margin-bottom: 20px; font-weight: 600; letter-spacing: 1px; }
+        input, select, textarea { width: 100%; padding: 12px; margin: 10px 0; background: #0f172a; border: 1px solid #334155; color: white; border-radius: 6px; }
+        input:focus, select:focus, textarea:focus { border-color: var(--accent-cyan); outline: none; }
+        button { width: 100%; padding: 12px; background: var(--accent-cyan); border: none; color: white; font-weight: bold; border-radius: 6px; cursor: pointer; transition: 0.3s; margin-top: 10px; }
+        button:hover { opacity: 0.9; box-shadow: 0 0 15px rgba(6, 182, 212, 0.4); }
+        
+        /* Dashboard Layout */
+        header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 30px; padding-bottom: 15px; border-bottom: 1px solid #334155; }
+        .logout-btn { width: auto; background: #ef4444; padding: 8px 15px; font-size: 14px; }
+        
+        /* Controls & Search */
+        .controls-grid { display: grid; grid-template-columns: 2fr 1fr; gap: 20px; margin-bottom: 20px; }
+        
+        /* Modal Form styling */
+        .modal { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.7); display: flex; justify-content: center; align-items: center; z-index: 100; }
+        .modal-content { background: var(--panel-dark); padding: 30px; border-radius: 12px; width: 500px; max-height: 90vh; overflow-y: auto; border: 1px solid #334155; }
+        .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+        .full-width { grid-column: span 2; }
+        .modal-actions { display: flex; gap: 10px; margin-top: 15px; }
+        .cancel-btn { background: #475569; }
+
+        /* Tech Table styling */
+        .table-container { background: var(--panel-dark); border-radius: 12px; overflow-x: auto; border: 1px solid #334155; box-shadow: 0 4px 15px rgba(0,0,0,0.3); }
+        table { width: 100%; border-collapse: collapse; text-align: left; font-size: 14px; }
+        th { background: #1e293b; color: var(--text-muted); padding: 16px; font-weight: 600; cursor: pointer; text-transform: uppercase; font-size: 11px; letter-spacing: 0.5px; border-bottom: 2px solid #334155;}
+        th:hover { color: var(--accent-cyan); }
+        td { padding: 16px; border-bottom: 1px solid #334155; vertical-align: middle; }
+        tr:hover { background: rgba(255,255,255,0.02); }
+
+        /* Color Coding Indicators */
+        .status-pill { padding: 4px 10px; border-radius: 20px; font-weight: bold; font-size: 11px; display: inline-block; text-transform: uppercase;}
+        .status-green { background: rgba(16, 185, 129, 0.2); color: var(--status-green); border: 1px solid var(--status-green); }
+        .status-yellow { background: rgba(245, 158, 11, 0.2); color: var(--status-yellow); border: 1px solid var(--status-yellow); }
+        .status-red { background: rgba(239, 68, 68, 0.2); color: var(--status-red); border: 1px solid var(--status-red); }
+
+        .action-icon-btn { background: transparent; color: var(--accent-cyan); padding: 4px 8px; font-size: 12px; border: 1px solid var(--accent-cyan); display: inline-block; width: auto; margin: 0; }
+        .action-icon-btn:hover { background: var(--accent-cyan); color: white; }
+    </style>
+</head>
+<body>
+
+    <div id="login-container">
+        <h1>NEXUS LOGISTICS</h1>
+        <p style="color: var(--text-muted); margin-bottom: 20px; font-size: 14px;">Pallet Jack Maintenance Vault</p>
+        <input type="email" id="login-email" placeholder="Operator Email">
+        <input type="password" id="login-password" placeholder="Access Cipher">
+        <button onclick="login()">Authenticate</button>
+        <p id="login-error" style="color:var(--status-red); margin-top:10px; font-size:12px;"></p>
+    </div>
+
+    <div id="dashboard-container" class="hidden">
+        <header>
+            <div>
+                <h2>EQUIPMENT MATRIX</h2>
+                <p style="color: var(--text-muted); font-size: 12px;">Real-time Firestore Connected System</p>
+            </div>
+            <button class="logout-btn" onclick="logout()">De-authenticate</button>
+        </header>
+
+        <div class="controls-grid">
+            <input type="text" id="search-bar" placeholder="⚡ Scan registry or type query (Name, Tag, SN, Location...)" oninput="renderTable()">
+            <button onclick="openModal()">+ Provision New Jack</button>
+        </div>
+
+        <div class="table-container">
+            <table>
+                <thead>
+                    <tr>
+                        <th onclick="setSort('name')">Name ↕</th>
+                        <th onclick="setSort('tag')">Tag ↕</th>
+                        <th onclick="setSort('location')">Location ↕</th>
+                        <th onclick="setSort('manufacturer')">Manufacturer ↕</th>
+                        <th onclick="setSort('model')">Model ↕</th>
+                        <th onclick="setSort('serialNumber')">Serial No. ↕</th>
+                        <th onclick="setSort('mfgYear')">Mfg Year ↕</th>
+                        <th onclick="setSort('greasedDate')">Last Greased ↕</th>
+                        <th>Technicians</th>
+                        <th>Notes / Parts</th>
+                        <th>Status</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody id="jack-table-body">
+                    </tbody>
+            </table>
+        </div>
+    </div>
+
+    <div id="jack-modal" class="modal hidden">
+        <div class="modal-content">
+            <h3 id="modal-title" style="margin-bottom: 15px;">Asset Input Parameters</h3>
+            <input type="hidden" id="form-id">
+            <div class="form-grid">
+                <div>
+                    <label style="font-size: 11px; color: var(--text-muted);">Asset Name</label>
+                    <input type="text" id="form-name" required placeholder="e.g. Heavy Lifter 1">
+                </div>
+                <div>
+                    <label style="font-size: 11px; color: var(--text-muted);">System Tag ID</label>
+                    <input type="text" id="form-tag" required placeholder="e.g. PJ-04">
+                </div>
+                <div>
+                    <label style="font-size: 11px; color: var(--text-muted);">Assigned Location</label>
+                    <input type="text" id="form-location" placeholder="e.g. Bay 4 / Freezer">
+                </div>
+                <div>
+                    <label style="font-size: 11px; color: var(--text-muted);">Manufacturer</label>
+                    <input type="text" id="form-manufacturer" placeholder="e.g. Crown">
+                </div>
+                <div>
+                    <label style="font-size: 11px; color: var(--text-muted);">Model</label>
+                    <input type="text" id="form-model" placeholder="e.g. PTH50">
+                </div>
+                <div>
+                    <label style="font-size: 11px; color: var(--text-muted);">Serial Number</label>
+                    <input type="text" id="form-serial">
+                </div>
+                <div>
+                    <label style="font-size: 11px; color: var(--text-muted);">Year of Manufacture</label>
+                    <input type="number" id="form-year" placeholder="e.g. 2022">
+                </div>
+                <div>
+                    <label style="font-size: 11px; color: var(--text-muted);">Last Greased Date</label>
+                    <input type="date" id="form-greased" required>
+                </div>
+                <div class="full-width">
+                    <label style="font-size: 11px; color: var(--text-muted);">Assigned Technicians</label>
+                    <input type="text" id="form-technicians" placeholder="Comma separated operators">
+                </div>
+                <div class="full-width">
+                    <label style="font-size: 11px; color: var(--text-muted);">Notes / Replaced Components</label>
+                    <textarea id="form-notes" rows="3" placeholder="Enter service telemetry..."></textarea>
+                </div>
+            </div>
+            <div class="modal-actions">
+                <button class="cancel-btn" onclick="closeModal()">Abort</button>
+                <button onclick="saveJackData()">Commit to Cloud</button>
+            </div>
+        </div>
+    </div>
+
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
+        import { getAuth, signInWithEmailAndPassword, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
+        import { getFirestore, collection, addDoc, updateDoc, deleteDoc, doc, onSnapshot } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+
+        // !!! PASTE YOUR FIREBASE WEB CONFIG OBJECT REPLACING THIS ENTIRE LOGIC BLOCK !!!
+        const firebaseConfig = {
+  apiKey: "AIzaSyCdj2HkoXdEeO_bu2KZ7AepowXcBrhiMtI",
+  authDomain: "pallet-jack-tracker.firebaseapp.com",
+  projectId: "pallet-jack-tracker",
+  storageBucket: "pallet-jack-tracker.firebasestorage.app",
+  messagingSenderId: "566107627737",
+  appId: "1:566107627737:web:891e4b96f242cfe2309ec8"
+};
+
+        // Init Firebase Modules
+        const app = initializeApp(firebaseConfig);
+        const auth = getAuth(app);
+        const db = getFirestore(app);
+
+        let localJacksCache = [];
+        let currentSortField = 'tag';
+        let currentSortAscending = true;
+
+        // AUTH CONTEXT MONITOR
+        onAuthStateChanged(auth, user => {
+            if (user) {
+                document.getElementById('login-container').classList.add('hidden');
+                document.getElementById('dashboard-container').classList.remove('hidden');
+                streamPalletJacks();
+            } else {
+                document.getElementById('login-container').classList.remove('hidden');
+                document.getElementById('dashboard-container').classList.add('hidden');
+            }
+        });
+
+        // AUTH FUNCTIONS
+        window.login = function() {
+            const email = document.getElementById('login-email').value;
+            const pass = document.getElementById('login-password').value;
+            signInWithEmailAndPassword(auth, email, pass).catch(err => {
+                document.getElementById('login-error').innerText = "Auth Failed: " + err.message;
+            });
+        }
+        window.logout = function() { signOut(auth); }
+
+        // FIRESTORE SYNC (Realtime Updates)
+        function streamPalletJacks() {
+            onSnapshot(collection(db, "pallet_jacks"), (snapshot) => {
+                localJacksCache = [];
+                snapshot.forEach((doc) => {
+                    localJacksCache.push({ id: doc.id, ...doc.data() });
+                });
+                renderTable();
+            });
+        }
+
+        // DATABASE SAVE/MUTATE ACTIONS
+        window.saveJackData = async function() {
+            const id = document.getElementById('form-id').value;
+            const payload = {
+                name: document.getElementById('form-name').value,
+                tag: document.getElementById('form-tag').value,
+                location: document.getElementById('form-location').value,
+                manufacturer: document.getElementById('form-manufacturer').value,
+                model: document.getElementById('form-model').value,
+                serialNumber: document.getElementById('form-serial').value,
+                mfgYear: document.getElementById('form-year').value,
+                greasedDate: document.getElementById('form-greased').value,
+                technicians: document.getElementById('form-technicians').value,
+                notes: document.getElementById('form-notes').value
+            };
+
+            if(!payload.name || !payload.tag || !payload.greasedDate) {
+                alert("Name, Tag, and Greased Date are parameters critical to structural operations.");
+                return;
+            }
+
+            try {
+                if (id) {
+                    await updateDoc(doc(db, "pallet_jacks", id), payload);
+                } else {
+                    await addDoc(collection(db, "pallet_jacks"), payload);
+                }
+                closeModal();
+            } catch (err) { alert("Write rejection error: " + err.message); }
+        }
+
+        window.deleteJack = async function(id) {
+            if(confirm("Confirm destructive teardown of this asset entry from main cloud array?")) {
+                await deleteDoc(doc(db, "pallet_jacks", id));
+            }
+        }
+
+        // SORTING MECHANICS
+        window.setSort = function(field) {
+            if (currentSortField === field) {
+                currentSortAscending = !currentSortAscending;
+            } else {
+                currentSortField = field;
+                currentSortAscending = true;
+            }
+            renderTable();
+        }
+
+        // DATA MATRIX ARCHITECTURE RENDERING & COLOR FORMATTING
+        window.renderTable = function() {
+            const query = document.getElementById('search-bar').value.toLowerCase();
+            const tbody = document.getElementById('jack-table-body');
+            tbody.innerHTML = '';
+
+            // Filter data array based on search text 
+            let filtered = localJacksCache.filter(jack => {
+                return Object.values(jack).some(val => String(val).toLowerCase().includes(query));
+            });
+
+            // Sort data array
+            filtered.sort((a, b) => {
+                let valA = a[currentSortField] || '';
+                let valB = b[currentSortField] || '';
+                return valA.toString().localeCompare(valB.toString(), undefined, {numeric: true, sensitivity: 'base'}) * (currentSortAscending ? 1 : -1);
+            });
+
+            // Iterate and inject UI nodes
+            filtered.forEach(jack => {
+                const elapsedMonths = calculateElapsedMonths(jack.greasedDate);
+                let statusClass = 'status-green';
+                let statusText = 'Optimal';
+
+                if (elapsedMonths >= 1 && elapsedMonths < 3) {
+                    statusClass = 'status-yellow';
+                    statusText = 'Caution';
+                } else if (elapsedMonths >= 3) {
+                    statusClass = 'status-red';
+                    statusText = 'Critical';
+                }
+
+                const tr = document.createElement('tr');
+                tr.innerHTML = `
+                    <td><strong>${jack.name || ''}</strong></td>
+                    <td><span style="color:var(--accent-cyan)">${jack.tag || ''}</span></td>
+                    <td>${jack.location || ''}</td>
+                    <td>${jack.manufacturer || ''}</td>
+                    <td>${jack.model || ''}</td>
+                    <td>${jack.serialNumber || ''}</td>
+                    <td>${jack.mfgYear || ''}</td>
+                    <td>${jack.greasedDate || ''}</td>
+                    <td style="font-size:12px; color:var(--text-muted)">${jack.technicians || ''}</td>
+                    <td style="max-width: 200px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size:12px; color:var(--text-muted)">${jack.notes || ''}</td>
+                    <td><span class="status-pill ${statusClass}">${statusText}</span></td>
+                    <td>
+                        <button class="action-icon-btn" onclick="openModal('${jack.id}')">EDIT</button>
+                        <button class="action-icon-btn" style="color:var(--status-red); border-color:var(--status-red)" onclick="deleteJack('${jack.id}')">❌</button>
+                    </td>
+                `;
+                tbody.appendChild(tr);
+            });
+        }
+
+        function calculateElapsedMonths(dateString) {
+            if(!dateString) return 999;
+            const pastDate = new Date(dateString);
+            const today = new Date();
+            // Basic approximation calculation for accurate tracking metric
+            return (today - pastDate) / (1000 * 60 * 60 * 24 * 30.4375);
+        }
+
+        // MODAL TOGGLES
+        window.openModal = function(id = null) {
+            document.getElementById('jack-modal').classList.remove('hidden');
+            if (id) {
+                document.getElementById('modal-title').innerText = "Modify Device Configuration";
+                const asset = localJacksCache.find(j => j.id === id);
+                document.getElementById('form-id').value = asset.id;
+                document.getElementById('form-name').value = asset.name || '';
+                document.getElementById('form-tag').value = asset.tag || '';
+                document.getElementById('form-location').value = asset.location || '';
+                document.getElementById('form-manufacturer').value = asset.manufacturer || '';
+                document.getElementById('form-model').value = asset.model || '';
+                document.getElementById('form-serial').value = asset.serialNumber || '';
+                document.getElementById('form-year').value = asset.mfgYear || '';
+                document.getElementById('form-greased').value = asset.greasedDate || '';
+                document.getElementById('form-technicians').value = asset.technicians || '';
+                document.getElementById('form-notes').value = asset.notes || '';
+            } else {
+                document.getElementById('modal-title').innerText = "Provision Asset Configuration";
+                document.getElementById('form-id').value = '';
+                document.getElementById('form-name').value = '';
+                document.getElementById('form-tag').value = '';
+                document.getElementById('form-location').value = '';
+                document.getElementById('form-manufacturer').value = '';
+                document.getElementById('form-model').value = '';
+                document.getElementById('form-serial').value = '';
+                document.getElementById('form-year').value = '';
+                document.getElementById('form-greased').value = '';
+                document.getElementById('form-technicians').value = '';
+                document.getElementById('form-notes').value = '';
+            }
+        }
+
+        window.closeModal = function() { document.getElementById('jack-modal').classList.add('hidden'); }
+    </script>
+</body>
+</html>
