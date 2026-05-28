@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Maintenance@MiM - Pallet Jack Matrix</title>
+    <title>Pallet Jack Greasing Tracker</title>
     <style>
         :root {
             --bg-dark: #0f172a;
@@ -37,6 +37,13 @@
         /* Controls & Search */
         .controls-grid { display: grid; grid-template-columns: 2fr 1fr; gap: 20px; margin-bottom: 20px; }
         
+        /* Horizontal Resize for Provisioning Button Context */
+        .provision-btn {
+            width: max-content;
+            justify-self: end;
+            margin-top: 0;
+        }
+        
         /* Modal Form styling */
         .modal { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.7); display: flex; justify-content: center; align-items: center; z-index: 100; }
         .modal-content { background: var(--panel-dark); padding: 30px; border-radius: 12px; width: 500px; max-height: 90vh; overflow-y: auto; border: 1px solid #334155; }
@@ -46,7 +53,7 @@
         .cancel-btn { background: #475569; }
 
         /* Tech Table styling */
-        .table-container { background: var(--panel-dark); border-radius: 12px; overflow-x: auto; border: 1px solid #334155; box-shadow: 0 4px 15px rgba(0,0,0,0.3); }
+        .table-container { background: var(--panel-dark); border-radius: 12px; overflow-x: auto; border: 1px solid #334155; box-shadow: 0 4px 15px rgba(0,0,0,0.3); table-layout: fixed; }
         table { width: 100%; border-collapse: collapse; text-align: left; font-size: 14px; }
         th { background: #1e293b; color: var(--text-muted); padding: 16px; font-weight: 600; cursor: pointer; text-transform: uppercase; font-size: 11px; letter-spacing: 0.5px; border-bottom: 2px solid #334155;}
         th:hover { color: var(--accent-cyan); }
@@ -96,7 +103,7 @@
 
         <div class="controls-grid">
             <input type="text" id="search-bar" placeholder="⚡ Scan registry or type query (Name, Tag, SN, Location...)" oninput="renderTable()">
-            <button onclick="openModal()">+ Provision New Jack</button>
+            <button class="provision-btn" onclick="openModal()">+ Provision New Jack</button>
         </div>
 
         <div class="table-container">
@@ -270,10 +277,8 @@
 
         // TIMESTAMP AND TECHNICIAN POP-UP UPDATE TRIGGER
         window.markAsGreasedToday = async function(id) {
-            // Prompt the user for tech logs prior to database adjustment
             const techNames = prompt("Enter the technician name(s) who completed this greasing operation:");
             
-            // Abort if cancel is selected or the field is completely empty
             if (techNames === null || techNames.trim() === "") {
                 alert("Operation aborted. Technicians field is required to log greasing execution.");
                 return;
