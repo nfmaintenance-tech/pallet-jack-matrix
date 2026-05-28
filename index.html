@@ -201,14 +201,20 @@
             }
         });
 
-        // AUTH FUNCTIONS
-        window.login = function() {
-            const email = document.getElementById('login-email').value;
-            const pass = document.getElementById('login-password').value;
-            signInWithEmailAndPassword(auth, email, pass).catch(err => {
-                document.getElementById('login-error').innerText = "Auth Failed: " + err.message;
-            });
-        }
+        // UPDATED AUTH FUNCTION WITH AUTOMATIC DOMAIN APPENDING
+window.login = function() {
+    let inputEmail = document.getElementById('login-email').value.trim();
+    const pass = document.getElementById('login-password').value;
+
+    // If the operator didn't type the domain, add it automatically
+    if (inputEmail && !inputEmail.includes('@')) {
+        inputEmail = inputEmail + '@materialinmotion.com';
+    }
+
+    signInWithEmailAndPassword(auth, inputEmail, pass).catch(err => {
+        document.getElementById('login-error').innerText = "Auth Failed: " + err.message;
+    });
+}
         window.logout = function() { signOut(auth); }
 
         // FIRESTORE SYNC (Realtime Updates)
